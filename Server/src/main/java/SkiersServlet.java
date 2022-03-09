@@ -182,7 +182,9 @@ public class SkiersServlet extends HttpServlet {
 
   private JsonObject createMessage(JsonObject body, Integer skierID) {
     JsonObject message = new JsonObject();
+    message.add("time", body.get("time"));
     message.add("liftID", body.get("liftID"));
+    message.add("waitTime", body.get("waitTime"));
     message.add("skierID", new JsonPrimitive(skierID));
 
     return message;
