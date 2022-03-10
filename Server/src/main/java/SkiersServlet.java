@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 import javax.servlet.ServletException;
@@ -25,7 +27,9 @@ public class SkiersServlet extends HttpServlet {
 
   private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
   private final String QUEUE_NAME = "liftride";
+  private final Integer NUM_CHANNELS = 20;
   private Connection conn;
+  private BlockingQueue<Channel> pool;
 
   @Override
   public void init() throws ServletException {
@@ -38,6 +42,18 @@ public class SkiersServlet extends HttpServlet {
     } catch (IOException | TimeoutException e) {
       System.err.println("Unable to create RabbitMQ connection");
       e.printStackTrace();
+    }
+
+    pool = new LinkedBlockingDeque<>();
+    for (int i = 0; i < NUM_CHANNELS; i++) {
+      try {
+        Channel channel = conn.createChannel();
+        channel.queueDeclare(QUEUE_NAME, false, false, false, null);
+
+        pool.add(channel);
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     }
   }
 
@@ -108,16 +124,21 @@ public class SkiersServlet extends HttpServlet {
 
       Integer skierID = Integer.parseInt(urlParts[7]);
 
-      Channel channel = conn.createChannel();
-      channel.queueDeclare(QUEUE_NAME, false, false, false, null);
-
       JsonObject message = createMessage(body, skierID);
 
-      channel.basicPublish("", QUEUE_NAME, null, gson.toJson(message).getBytes());
-      System.out.println(" [x] Sent '" + message + "'");
+      try {
+        Channel channel = pool.take();
 
-      res.setStatus(HttpServletResponse.SC_CREATED);
-      res.getWriter().write("Lift ride created!");
+        channel.basicPublish("", QUEUE_NAME, null, gson.toJson(message).getBytes());
+        System.out.println(" [x] Sent '" + message + "'");
+
+        res.setStatus(HttpServletResponse.SC_CREATED);
+        res.getWriter().write("Lift ride created!");
+
+        pool.add(channel);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
     }
   }
 
