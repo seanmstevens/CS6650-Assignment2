@@ -112,7 +112,6 @@ public class SkiersServlet extends HttpServlet {
     }
 
     JsonObject body = gson.fromJson(req.getReader(), JsonObject.class);
-
     String[] urlParts = urlPath.split("/");
 
     if (!Endpoint.POST_LIFT_RIDES.pattern.matcher(urlPath).matches()) {
@@ -158,13 +157,14 @@ public class SkiersServlet extends HttpServlet {
       throws IOException {
     PrintWriter writer = res.getWriter();
 
-    Map<String, String> params = new HashMap<>();
-    params.put("time", null);
-    params.put("liftID", null);
-    params.put("waitTime", null);
+    Map<String, Parameter> params = new HashMap<>();
+    params.put("time", new Parameter("time", null, 1, 420));
+    params.put("liftID", new Parameter("liftID", null, 1, Integer.MAX_VALUE));
+    params.put("waitTime", new Parameter("waitTime", null, 0, Integer.MAX_VALUE));
 
     for (String param : params.keySet()) {
       JsonElement value = body.get(param);
+      Parameter p = params.get(param);
 
       if (value == null) {
         res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -172,33 +172,11 @@ public class SkiersServlet extends HttpServlet {
         return false;
       }
 
-      params.replace(param, value.getAsString());
-    }
-
-    // TODO: Simplify this using a Parameter class with an 'isValid' method
-    return isValidValue("time", params.get("time"), 1, 420, res)
-        && isValidValue("liftID", params.get("liftID"), 1, Integer.MAX_VALUE, res)
-        && isValidValue("waitTime", params.get("waitTime"), 0, Integer.MAX_VALUE, res);
-  }
-
-  private boolean isValidValue(
-      String name, String value, Integer lowerBound, Integer upperBound, HttpServletResponse res)
-      throws IOException {
-    try {
-      Integer parsedVal = Integer.parseInt(value);
-
-      if (!isWithinRange(parsedVal, lowerBound, upperBound)) throw new NumberFormatException();
-    } catch (NumberFormatException nfe) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      res.getWriter().write("Invalid value for parameter '" + name + "': " + value);
-      return false;
+      p.setValue(value.getAsString());
+      if (!p.isValid(res)) return false;
     }
 
     return true;
-  }
-
-  private boolean isWithinRange(Integer value, Integer lowerBound, Integer upperBound) {
-    return value >= lowerBound && value < upperBound;
   }
 
   private JsonObject createMessage(JsonObject body, Integer skierID) {
@@ -211,6 +189,9 @@ public class SkiersServlet extends HttpServlet {
     return message;
   }
 
+  /**
+   * Enum containing the patterns for each valid URL in the servlet.
+   */
   private enum Endpoint {
     GET_LIFT_RIDES(Pattern.compile("/\\d+/seasons/\\d+/days/\\d+/skiers/\\d+")),
     POST_LIFT_RIDES(Pattern.compile("/\\d+/seasons/\\d+/days/\\d+/skiers/\\d+")),
