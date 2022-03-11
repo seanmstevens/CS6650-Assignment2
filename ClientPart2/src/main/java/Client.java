@@ -34,8 +34,8 @@ public class Client {
     int totalThreads = phaseOneThreads + t + phaseThreeThreads;
 
     processor = new DataProcessor("output.csv");
-    pool = Executors.newFixedThreadPool(t);
-    totalLatch = new CountDownLatch(t);
+    pool = Executors.newFixedThreadPool(totalThreads);
+    totalLatch = new CountDownLatch(totalThreads);
 
     PhaseOptions p1Opts =
         new PhaseOptions(
@@ -65,9 +65,9 @@ public class Client {
     System.out.println();
 
     long start = System.currentTimeMillis();
-    //executePhase(p1Opts);
+    executePhase(p1Opts);
     executePhase(p2Opts);
-    //executePhase(p3Opts);
+    executePhase(p3Opts);
 
     totalLatch.await();
     pool.shutdown();

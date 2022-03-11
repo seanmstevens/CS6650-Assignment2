@@ -94,7 +94,7 @@ public class WorkerRunnable implements Runnable {
           numSuccessful++;
           success = true;
         } catch (ApiException e) {
-          // System.err.println("POST request failure: " + e.getMessage() + ", " + e.getCode());
+          System.err.println("POST request failure: " + e.getMessage() + ", " + e.getCode());
           long end = System.currentTimeMillis();
 
           latencyList.add(
