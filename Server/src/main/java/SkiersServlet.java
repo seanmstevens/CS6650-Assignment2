@@ -31,6 +31,13 @@ public class SkiersServlet extends HttpServlet {
   private Connection conn;
   private BlockingQueue<Channel> pool;
 
+  /**
+   * Overridden init method that creates a connection to the RabbitMQ node and creates a shared pool
+   * of publishing channels for the Tomcat threads to use.
+   *
+   * @throws ServletException When an exception occurs that interrupts the servlet's normal
+   *     operation.
+   */
   @Override
   public void init() throws ServletException {
     super.init();
@@ -46,6 +53,8 @@ public class SkiersServlet extends HttpServlet {
       e.printStackTrace();
     }
 
+    // The shared pool of channels is implemented using a BlockingQueue. The threads will take and
+    // replace the channels to publish messages
     pool = new LinkedBlockingDeque<>();
     for (int i = 0; i < NUM_CHANNELS; i++) {
       try {
@@ -65,6 +74,7 @@ public class SkiersServlet extends HttpServlet {
     res.setContentType("application/json");
     String urlPath = req.getPathInfo();
 
+    // Check if URL path is able to be validated
     if (urlPath == null || urlPath.isEmpty()) {
       res.setStatus(HttpServletResponse.SC_NOT_FOUND);
       res.getWriter().write("Invalid path");
@@ -73,6 +83,7 @@ public class SkiersServlet extends HttpServlet {
 
     String[] urlParts = urlPath.split("/");
 
+    // First confirm that passed in URL is one of the recognized endpoints
     if (!isUrlValid(urlPath)) {
       res.setStatus(HttpServletResponse.SC_NOT_FOUND);
       res.getWriter().write("Invalid path or parameters supplied");
@@ -91,6 +102,7 @@ public class SkiersServlet extends HttpServlet {
     } else {
       res.setStatus(HttpServletResponse.SC_OK);
 
+      // Send back dummy data as a response
       String json =
           gson.toJson(
               new SkierVertical()
@@ -107,6 +119,7 @@ public class SkiersServlet extends HttpServlet {
     res.setContentType("application/json");
     String urlPath = req.getPathInfo();
 
+    // Check if URL path can be validated
     if (urlPath == null || urlPath.isEmpty()) {
       res.setStatus(HttpServletResponse.SC_NOT_FOUND);
       res.getWriter().write("Invalid path");
@@ -143,6 +156,12 @@ public class SkiersServlet extends HttpServlet {
     }
   }
 
+  /**
+   * Helper function to determine if the passed in URL matches a recognized endpoint.
+   *
+   * @param url The URL to be validated.
+   * @return A boolean indicating if the URL is among the recognized endpoints.
+   */
   private boolean isUrlValid(String url) {
     for (Endpoint endpoint : Endpoint.values()) {
       Pattern pattern = endpoint.pattern;
@@ -155,6 +174,14 @@ public class SkiersServlet extends HttpServlet {
     return false;
   }
 
+  /**
+   * Helper function to determine if a POST request body is valid.
+   *
+   * @param body The JSON body to be validated.
+   * @param res The response object.
+   * @return A boolean indicating if the request body is valid.
+   * @throws IOException When an IO error occurs when obtaining the writer for the response.
+   */
   private boolean validateParameterValues(JsonObject body, HttpServletResponse res)
       throws IOException {
     PrintWriter writer = res.getWriter();
@@ -181,6 +208,13 @@ public class SkiersServlet extends HttpServlet {
     return true;
   }
 
+  /**
+   * Helper function to create the message to be published to the messaging queue.
+   *
+   * @param body The request body from which some parameters will be used for the new message.
+   * @param skierID The skier ID value, obtained from the URL of the request.
+   * @return A new JsonObject containing the information that will be sent to the queue.
+   */
   private JsonObject createMessage(JsonObject body, Integer skierID) {
     JsonObject message = new JsonObject();
     message.add("time", body.get("time"));
@@ -191,9 +225,7 @@ public class SkiersServlet extends HttpServlet {
     return message;
   }
 
-  /**
-   * Enum containing the patterns for each valid URL in the servlet.
-   */
+  /** Enum containing the patterns for each valid URL in the servlet. */
   private enum Endpoint {
     GET_LIFT_RIDES(Pattern.compile("/\\d+/seasons/\\d+/days/\\d+/skiers/\\d+")),
     POST_LIFT_RIDES(Pattern.compile("/\\d+/seasons/\\d+/days/\\d+/skiers/\\d+")),
