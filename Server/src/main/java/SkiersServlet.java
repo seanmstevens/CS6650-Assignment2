@@ -27,7 +27,7 @@ public class SkiersServlet extends HttpServlet {
 
   private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
   private final String QUEUE_NAME = "liftride";
-  private final Integer NUM_CHANNELS = 20;
+  private final Integer NUM_CHANNELS = 100;
   private Connection conn;
   private BlockingQueue<Channel> pool;
 
